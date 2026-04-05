@@ -1,9 +1,4 @@
-// netlify/functions/analyze.js
-// This is your secure backend. The API key is hidden here — never visible to users.
-
 exports.handler = async function (event, context) {
-
-  // Handle browser preflight requests (CORS fix)
   if (event.httpMethod === "OPTIONS") {
     return {
       statusCode: 200,
@@ -16,7 +11,6 @@ exports.handler = async function (event, context) {
     };
   }
 
-  // Only allow POST requests
   if (event.httpMethod !== "POST") {
     return {
       statusCode: 405,
@@ -26,11 +20,9 @@ exports.handler = async function (event, context) {
   }
 
   try {
-    // Parse the data sent from frontend
     const body = JSON.parse(event.body);
     const { cv, job, name, exp, jtype } = body;
 
-    // Validate required fields
     if (!cv || !job) {
       return {
         statusCode: 400,
@@ -39,14 +31,12 @@ exports.handler = async function (event, context) {
       };
     }
 
-    // Decide if math questions are needed based on job type
     const needsMath = jtype === "finance" || jtype === "tech";
 
     const mathInstruction = needsMath
       ? `"math_questions":[{"question":"<relevant math question for this job>","answer":"<answer>"},{"question":"<q2>","answer":"<a2>"},{"question":"<q3>","answer":"<a3>"},{"question":"<q4>","answer":"<a4>"},{"question":"<q5>","answer":"<a5>"}]`
       : `"math_questions":[]`;
 
-    // Build the prompt
     const prompt = `You are Jobiqa, a professional career advisor for Nepali job seekers.
 
 Candidate Name: ${name || "Job Seeker"}
@@ -64,7 +54,6 @@ No markdown, no code blocks, no extra text before or after the JSON:
 
 {"score":<integer 0-100 be realistic>,"verdict":"<Strong Match|Good Match|Partial Match|Weak Match|Poor Match>","summary":"<2 honest sentences personalized to the candidate>","missing_skills":["<skill1>","<skill2>","<skill3>","<skill4>"],"tips":[{"title":"<short specific title>","description":"<2 actionable sentences specific to this CV and job>"},{"title":"<title>","description":"<2 sentences>"},{"title":"<title>","description":"<2 sentences>"}],"interview_questions":["<question 1 specific to this exact job and CV>","<question 2>","<question 3>","<question 4>","<question 5>","<question 6>"],${mathInstruction},"roadmap":[{"week":"Wk 1-2","task":"<specific actionable task to improve candidacy>"},{"week":"Wk 3-4","task":"<specific task>"},{"week":"Wk 5-6","task":"<specific task>"},{"week":"Wk 7-8","task":"<specific task>"},{"week":"Wk 9-10","task":"<specific task>"}]}`;
 
-    // Call Claude API securely from backend
     const response = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
@@ -73,13 +62,12 @@ No markdown, no code blocks, no extra text before or after the JSON:
         "anthropic-version": "2023-06-01",
       },
       body: JSON.stringify({
-        model: "claude-sonnet-4-5",
+        model: "claude-sonnet-4-20250514",
         max_tokens: 2500,
         messages: [{ role: "user", content: prompt }],
       }),
     });
 
-    // Handle rate limit
     if (response.status === 429 || response.status === 529) {
       return {
         statusCode: 429,
@@ -108,7 +96,6 @@ No markdown, no code blocks, no extra text before or after the JSON:
       };
     }
 
-    // Clean and parse the JSON from Claude
     let raw = data.content[0].text
       .replace(/```json\s*/gi, "")
       .replace(/```\s*/gi, "")
